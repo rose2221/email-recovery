@@ -42,6 +42,18 @@ abstract contract SimpleGuardianManager is ISimpleGuardianManager {
         }
         _;
     }
+       /**
+     * @notice Modifier to check if the kill switch has been enabled
+     * @dev This impacts EmailRecoveryManager & GuardianManager
+     */
+    modifier onlyWhenActive() {
+        bool killSwitchEnabled = IEmailRecoveryManager(address(this)).killSwitchEnabled();
+        if (killSwitchEnabled) {
+            revert KillSwitchEnabled();
+        }
+        _;
+    }
+
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       GUARDIAN LOGIC                       */

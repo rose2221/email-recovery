@@ -149,29 +149,29 @@ contract EmailRecoveryModule is EmailRecoveryManager, ERC7579ExecutorBase, IEmai
     /*                        MODULE LOGIC                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    /**
-     * @notice Executes recovery on a validator. Called from the recovery manager once a recovery
-     * attempt has been processed
-     * @param account The account to execute recovery for
-     * @param recoveryData The recovery data that should be executed on the validator
-     * being recovered. recoveryData = abi.encode(validator, recoveryFunctionCalldata)
-     */
-    function recover(address account, bytes calldata recoveryData) internal override {
-        (, bytes memory recoveryCalldata) = abi.decode(recoveryData, (address, bytes));
+        /**
+         * @notice Executes recovery on a validator. Called from the recovery manager once a recovery
+         * attempt has been processed
+         * @param account The account to execute recovery for
+         * @param recoveryData The recovery data that should be executed on the validator
+         * being recovered. recoveryData = abi.encode(validator, recoveryFunctionCalldata)
+         */
+        function recover(address account, bytes calldata recoveryData) internal override {
+            (, bytes memory recoveryCalldata) = abi.decode(recoveryData, (address, bytes));
 
-        bytes4 calldataSelector;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            calldataSelector := mload(add(recoveryCalldata, 32))
+            bytes4 calldataSelector;
+            // solhint-disable-next-line no-inline-assembly
+            assembly {
+                calldataSelector := mload(add(recoveryCalldata, 32))
+            }
+            if (calldataSelector != selector) {
+                revert InvalidSelector(calldataSelector);
+            }
+
+            _execute({ account: account, to: validator, value: 0, data: recoveryCalldata });
+
+            emit RecoveryExecuted(account, validator);
         }
-        if (calldataSelector != selector) {
-            revert InvalidSelector(calldataSelector);
-        }
-
-        _execute({ account: account, to: validator, value: 0, data: recoveryCalldata });
-
-        emit RecoveryExecuted(account, validator);
-    }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         METADATA                           */

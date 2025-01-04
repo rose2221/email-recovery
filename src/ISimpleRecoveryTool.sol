@@ -59,6 +59,8 @@ error InvalidVerifier();
 error InvalidEmailAuthImpl();
 error InvalidDKIMRegistry();
 error SetupAlreadyCalled();
+   error InvalidCommandHandler();
+  error InvalidKillSwitchAuthorizer();
 error DelayLessThanMinimumDelay(uint256 delay, uint256 minimumDelay);
 error DelayMoreThanExpiry(uint256 delay, uint256 expiry);
 error RecoveryWindowTooShort(uint256 recoveryWindow);
@@ -75,6 +77,8 @@ error NotEnoughApprovals();
 error RecoveryRequestExpired();
 error InvalidSelector();
 error AccountNotConfigured();
+ error DelayNotPassed(uint256 blockTimestamp, uint256 executeAfter);
+  
 
    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          FUNCTIONS                         */

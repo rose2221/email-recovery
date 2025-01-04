@@ -41,6 +41,10 @@ interface ISimpleGuardianManager {
     error StatusCannotBeTheSame(GuardianStatus newStatus);
     error SetupNotCalled();
     error AddressNotGuardianForAccount();
+      error InvalidTemplateIndex(uint256 templateIdx, uint256 expectedTemplateIdx);
+    error InvalidCommandParams(uint256 paramsLength, uint256 expectedParamsLength);
+   error ThresholdExceedsAcceptedWeight(uint256 threshold, uint256 acceptedWeight);
+   
 
     function getGuardianConfig(address account) external view returns (GuardianConfig memory);
 

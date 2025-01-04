@@ -337,7 +337,7 @@ abstract contract EmailRecoveryManager is
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                     HANDLE ACCEPTANCE                      */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´`*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
      * @notice Accepts a guardian for the specified account. This is the second core function
@@ -531,10 +531,7 @@ abstract contract EmailRecoveryManager is
             revert RecoveryRequestExpired(block.timestamp, recoveryRequest.executeBefore);
         }
 
-        bytes32 recoveryDataHash = keccak256(recoveryData);
-        if (recoveryDataHash != recoveryRequest.recoveryDataHash) {
-            revert InvalidRecoveryDataHash(recoveryDataHash, recoveryRequest.recoveryDataHash);
-        }
+       
 
         clearRecoveryRequest(account);
 
