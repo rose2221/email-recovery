@@ -96,7 +96,7 @@ abstract contract SimpleGuardianManager is ISimpleGuardianManager {
         address account,
         address[] memory guardians,
         uint256[] memory weights,
-        GuardianType[] memory guardianTypes,
+        GuardianType[] memory guardiantypes,
         uint256 threshold
     )
         internal
@@ -113,7 +113,7 @@ abstract contract SimpleGuardianManager is ISimpleGuardianManager {
         }
 
         for (uint256 i = 0; i < guardianCount; i++) {
-            _addGuardian(account, guardians[i], weights[i], guardianTypes[i]);
+            _addGuardian(account, guardians[i], weights[i], guardiantypes[i]);
         }
 
         uint256 totalWeight = guardianConfigs[account].totalWeight;

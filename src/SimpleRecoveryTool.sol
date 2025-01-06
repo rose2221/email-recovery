@@ -1,13 +1,13 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
-
+import {AccountHidingRecoveryCommandHandler} from "./handlers/AccountHidingRecoveryCommandHandler.sol";
 import { EmailAccountRecovery } from
     "@zk-email/ether-email-auth-contracts/src/EmailAccountRecovery.sol";
 import {ISimpleRecoveryToolManager} from "./ISimpleRecoveryTool.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
-import "email-recovery/node_modules/.pnpm/@zk-email+ether-email-auth-contracts@1.0.2/node_modules/@zk-email/ether-email-auth-contracts/src/EmailAuth.sol";
+import { IEmailRecoveryCommandHandler } from "./interfaces/IEmailRecoveryCommandHandler.sol";
+import "@zk-email/ether-email-auth-contracts/src/EmailAuth.sol";
 import {SimpleGuardianManager} from "./SimpleGuardianManager.sol";
 import { GuardianStorage, GuardianStatus } from "./libraries/EnumerableGuardianMap.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -25,18 +25,7 @@ abstract contract ModularRecoveryManager is EmailAccountRecovery, Ownable,  Simp
     address public immutable commandHandler;
   uint public constant CANCEL_EXPIRED_RECOVERY_COOLDOWN = 1 days;
 
-//   struct RecoveryConfig {
-//     uint256 delay;
-//     uint256 expiry;
-//   }
 
-//   struct RecoveryRequest {
-//     uint256 executeAfter;
-//     uint256 executeBefore;
-//     uint256 currentWeight;
-//     bytes32 recoveryDataHash;
-//     EnumerableSet.AddressSet guardianVoted;
-//   }
   bool public killSwitchEnabled;
   mapping(address account => RecoveryConfig recoveryConfig) internal recoveryConfigs;
   mapping(address account => RecoveryRequest recoveryRequest) internal recoveryRequests;
@@ -74,53 +63,34 @@ abstract contract ModularRecoveryManager is EmailAccountRecovery, Ownable,  Simp
         minimumDelay = _minimumDelay;
       }
 
-//     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-//     /*                           EVENTS                           */
-//     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-// event RecoveryConfigured(address indexed account, uint256 guardianCount, uint256 totalWeight, uint256 threshold);
-// event GuardianAccepted(address indexed account, address indexed guardian);
-// event RecoveryRequestStarted(address indexed account, address indexed guardian, uint256 executeBefore, bytes32 recoveryDataHash);
-// event GuardianVoted(address indexed account, address indexed guardian);
-// event RecoveryRequestComplete(address indexed account, address indexed guardian, uint256 executeAfter, uint256 executeBefore, bytes32 recoveryDataHash);
-// event RecoveryCompleted(address indexed account);
-// event RecoveryCancelled(address indexed account);
-// event RecoveryRequestStarted(address indexed account, address indexed guardian, uint256 executeBefore, bytes32 recoveryDataHash);
-// event RecoveryExecuted(address indexed account, address indexed validator);
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                           ERRORS                           */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-// error InvalidVerifier();
-// error InvalidEmailAuthImpl();
-// error InvalidDKIMRegistry();
-// error SetupAlreadyCalled();
-// error DelayLessThanMinimumDelay(uint256 delay, uint256 minimumDelay);
-// error DelayMoreThanExpiry(uint256 delay, uint256 expiry);
-// error RecoveryWindowTooShort(uint256 recoveryWindow);
-// error NoRecoveryInProcess();
-// error RecoveryIsNotActivated();
-// error InvalidTemplateIndex(uint256 templateIdx, uint256 expectedTemplateIdx);
-// error InvalidCommadparams(uint256 paramsLength, uint256 expectedParamsLength);
-// error InvalidGuardianStatus();
-// error GuardianAlreadyVoted();
-// error InvalidRecoveryDataHash();
-// error InvalidAccountAddress();
-// error NoRecoveryConfigured();
-// error NotEnoughApprovals();
-// error RecoveryRequestExpired();
-// error InvalidSelector();
-// error AccountNotConfigured();
 
 
      /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          FUNCTIONS                         */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+      /**
+     * @notice Retrieves the recovery configuration for a given account
+     * @param account The address of the account for which the recovery configuration is being
+     * retrieved
+     * @return RecoveryConfig The recovery configuration for the specified account
+     */
 
   function getRecoveryConfig(address account) external view returns (RecoveryConfig memory){
     return recoveryConfigs[account];
   }
-// need to add accounts to the mapping reocveryconfigs and recoveryRequests
+    /**
+     * @notice Retrieves the recovery request details for a given account
+     * @dev Does not return guardianVoted as that is part of a nested mapping
+     * @param account The address of the account for which the recovery request details are being
+     * retrieved
+     * @return executeAfter The timestamp from which the recovery request can be executed
+     * @return executeBefore The timestamp from which the recovery request becomes invalid
+     * @return currentWeight Total weight of all guardian approvals for the recovery request
+     * @return recoveryDataHash The keccak256 hash of the recovery data used to execute the recovery
+     * attempt
+     */
+
   function getRecoveryRequest(address account) external view returns ( uint256 executeAfter,
     uint256 executeBefore,
     uint256 currentWeight,
@@ -132,10 +102,42 @@ abstract contract ModularRecoveryManager is EmailAccountRecovery, Ownable,  Simp
             recoveryRequests[account].recoveryDataHash
         );
     }
-
+  /**
+     * @notice Returns whether a guardian has voted on the current recovery request for a given
+     * account
+     * @param account The address of the account for which the recovery request is being checked
+     * @param guardian The address of the guardian to check voted status
+     * @return bool The boolean value indicating whether the guardian has voted on the recovery
+     * request
+     */
 function hasGuardianVoted(address account, address guardian) public view returns (bool){
         return recoveryRequests[account].guardianVoted.contains(guardian);
      }
+      /**
+     * @notice Checks if the recovery is activated for a given account
+     * @param account The address of the account for which the activation status is being checked
+     * @return bool True if the recovery request is activated, false otherwise
+     */
+    function isActivated(address account) public view override returns (bool) {
+        return guardianConfigs[account].threshold > 0;
+    }
+
+       /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                     CONFIGURE RECOVERY                     */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Configures recovery for the caller's account. This is the first core function
+     * that must be called during the end-to-end recovery flow
+     * @dev Can only be called once for configuration. Sets up the guardians, and validates config
+     * parameters, ensuring that no recovery is in process. It is possible to update configuration
+     * at a later stage if neccessary
+     * @param guardians An array of guardian addresses
+     * @param weights An array of weights corresponding to each guardian
+     * @param threshold The threshold weight required for recovery
+     * @param delay The delay period before recovery can be executed
+     * @param expiry The expiry time after which the recovery attempt is invalid
+     */
 function configureRecovery(
     address[] memory guardians,
     uint256[] memory weights,
@@ -143,7 +145,7 @@ function configureRecovery(
     uint256 threshold,
     uint256 delay,
     uint256 expiry
-) internal {
+) internal onlyWhenActive{
     address account = msg.sender;
 
     if(guardianConfigs[account].threshold > 0){
@@ -174,22 +176,33 @@ recoveryConfigs[account] = recoveryConfig;
 // function acceptGuardian
 //function getguardian
 //i've not added prev config lets see if it shoudl be added or not.
-function processRecovery(address guardian, uint256 templateIdx, bytes[] memory commandParams, bytes32 ) internal override {
-if(templateIdx != 0){
-    revert InvalidTemplateIndex(templateIdx, 0);
-}
-if (commandParams.length != 1){
-    revert InvalidCommandParams(commandParams.length, 1);
-}
-address account = abi.decode(commandParams[0], (address));
-    if(!isActivated(account)) {
+  /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                      HANDLE RECOVERY                       */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Processes a recovery request for a given account. This is the third core function
+     * that must be called during the end-to-end recovery flow
+     * @dev Called once per guardian until the threshold is reached
+     * @param guardian The address of the guardian initiating/voting on the recovery request
+     * @param templateIdx The index of the template used for the recovery request
+     * @param commandParams An array of bytes containing the command parameters
+     * @param {nullifier} Unused parameter. The nullifier acts as a unique identifier for an email,
+     * but it is not required in this implementation
+     */
+function processRecovery(address guardian, uint256 templateIdx, bytes[] memory commandParams, bytes32 ) internal override onlyWhenActive{
+ address account = IEmailRecoveryCommandHandler(commandHandler).validateRecoveryCommand(
+            templateIdx, commandParams
+        );
+   if(!isActivated(account)) {
         revert RecoveryIsNotActivated();
     }
     GuardianConfig memory guardianConfig = guardianConfigs[account];
     if (guardianConfig.threshold > guardianConfig.acceptedWeight){
         revert ThresholdExceedsAcceptedWeight(guardianConfig.threshold, guardianConfig.acceptedWeight);
     }
-
+ // This check ensures GuardianStatus is correct and also implicitly that the
+        // account in the email is a valid account
     GuardianStorage memory guardianStorage = getGuardian(account, guardian);
     if(guardianStorage.status != GuardianStatus.ACCEPTED){
         revert InvalidGuardianStatus();
@@ -217,8 +230,27 @@ address account = abi.decode(commandParams[0], (address));
         emit RecoveryRequestComplete(account, guardian, executeAfter, recoveryRequest.executeBefore, recoveryDataHash);
     }
 }
+   /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                     COMPLETE RECOVERY                      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Completes the recovery process for a given account. This is the forth and final
+     * core function that must be called during the end-to-end recovery flow. Can be called by
+     * anyone.
+     * @dev Validates the recovery request by checking the total weight, that the delay has passed,
+     * and the request has not expired. Calls the virtual `recover()` function which triggers
+     * recovery. This function deletes the recovery request but recovery config state is maintained
+     * so future recovery requests can be made without having to reconfigure everything
+     * @param account The address of the account for which the recovery is being completed
+     * @param recoveryData The data that is passed to recover the validator or account.
+     * recoveryData = abi.encode(validatorOrAccount, recoveryFunctionCalldata). Although, it is
+     * possible to design an account/module using this manager without encoding the validator or
+     * account, depending on how the `handler.parseRecoveryDataHash()` and `recover()` functions
+     * are implemented
+     */
 function completeRecovery(
-    address account, bytes calldata recoveryData) external override {
+    address account, bytes calldata recoveryData) external override  onlyWhenActive{
       if (account == address(0)){
         revert InvalidAccountAddress();
 
@@ -235,15 +267,45 @@ if (block.timestamp < recoveryRequest.executeAfter){
 }
 if(block.timestamp >= recoveryRequest.executeBefore){
 revert RecoveryRequestExpired();}
- bytes32 recoveryDataHash = keccak256(recoveryData);
-        if (recoveryDataHash != recoveryRequest.recoveryDataHash) {
-            revert InvalidRecoveryDataHash();
-        }
+//  bytes32 recoveryDataHash = keccak256(recoveryData);
+//         if (recoveryDataHash != recoveryRequest.recoveryDataHash) {
+//             revert InvalidRecoveryDataHash();
+//         }
 
 exitandclearRecovery(account);
 recover(account, recoveryData);
 emit RecoveryCompleted(account);
     }
+     /**
+     * @notice Removes all state related to msg.sender.
+     * @dev A feature specifically important for smart account modules - in order to prevent
+     * unexpected behaviour when reinstalling account modules, the contract state should be
+     * deinitialized. This should include removing state accociated with an account.
+     */
+    function deInitRecoveryModule() internal onlyWhenNotRecovering {
+        address account = msg.sender;
+        deInitRecoveryModule(account);
+    }
+
+    /**
+     * @notice Removes all state related to an account.
+     * @dev Although this function is internal, it should be used carefully as it can be called by
+     * anyone. A feature specifically important for smart account modules - in order to prevent
+     * unexpected behaviour when reinstalling account modules, the contract state should be
+     * deinitialized. This should include removing state accociated with an account
+     * @param account The address of the account for which recovery is being deinitialized
+     */
+    function deInitRecoveryModule(address account) internal onlyWhenNotRecovering {
+        delete recoveryConfigs[account];
+       exitandclearRecovery(account);
+      
+
+        
+        delete guardianConfigs[account];
+
+        emit RecoveryDeInitialized(account);
+    }
+
   /**
      * @notice Called during completeRecovery to finalize recovery. Contains implementation-specific
      * logic to recover an account
@@ -259,7 +321,25 @@ emit RecoveryCompleted(account);
      */
     function recover(address account, bytes calldata recoveryData) internal virtual;
 
- 
+ /**
+     * @notice Cancels the recovery request for a given account if it is expired.
+     * @dev Deletes the current recovery request associated with the given account if the recovery
+     * request has expired.
+     * @param account The address of the account for which the recovery is being cancelled
+     */
+    function cancelExpiredRecovery(address account) external onlyWhenActive {
+        if (recoveryRequests[account].currentWeight == 0) {
+            revert NoRecoveryInProcess();
+        }
+        if (recoveryRequests[account].executeBefore > block.timestamp) {
+            revert RecoveryHasNotExpired(
+                account, block.timestamp, recoveryRequests[account].executeBefore
+            );
+        }
+        
+        exitandclearRecovery(account);
+        emit RecoveryCancelled(account);
+    }
 
     function exitandclearRecovery(address account) public {
         if(recoveryRequests[msg.sender].currentWeight == 0){
@@ -275,16 +355,78 @@ emit RecoveryCompleted(account);
         delete recoveryRequests[account];
       emit RecoveryCancelled(account);
     }
-// function hexToBytes32(string memory source) internal pure returns (bytes32 result) {
-//     bytes memory tempBytes = bytes(source);
-//     if (tempBytes.length == 0) {
-//         revert("Empty string");
-//     }
-//     require(tempBytes.length <= 32, "String too long");
-//     assembly {
-//         result := mload(add(source, 32))
-//     }
-// }
+  /**
+     * @notice Toggles the kill switch on the manager
+     * @dev Can only be called by the kill switch authorizer
+     */
+    function toggleKillSwitch() external onlyOwner {
+        killSwitchEnabled = !killSwitchEnabled;
+    }
+      /**
+     * @notice Returns a two-dimensional array of strings representing the command templates for an
+     * acceptance by a new guardian.
+     * @dev This is retrieved from the associated command handler. Developers can write their own
+     * command handlers, this is useful for account implementations which require different data in
+     * the command or if the email should be in a language that is not English.
+     * @return string[][] A two-dimensional array of strings, where each inner array represents a
+     * set of fixed strings and matchers for a command template.
+     */
+    function acceptanceCommandTemplates() public view override returns (string[][] memory) {
+        return IEmailRecoveryCommandHandler(commandHandler).acceptanceCommandTemplates();
+    }
+
+    /**
+     * @notice Returns a two-dimensional array of strings representing the command templates for
+     * email recovery.
+     * @dev This is retrieved from the associated command handler. Developers can write their own
+     * command handlers, this is useful for account implementations which require different data in
+     * the command or if the email should be in a language that is not English.
+     * @return string[][] A two-dimensional array of strings, where each inner array represents a
+     * set of fixed strings and matchers for a command template.
+     */
+    function recoveryCommandTemplates() public view override returns (string[][] memory) {
+        return IEmailRecoveryCommandHandler(commandHandler).recoveryCommandTemplates();
+    }
+
+    /**
+     * @notice Extracts the account address to be recovered from the command parameters of an
+     * acceptance email.
+     * @dev This is retrieved from the associated command handler.
+     * @param commandParams The command parameters of the acceptance email.
+     * @param templateIdx The index of the acceptance command template.
+     */
+    function extractRecoveredAccountFromAcceptanceCommand(
+        bytes[] memory commandParams,
+        uint256 templateIdx
+    )
+        public
+        view
+        override
+        returns (address)
+    {
+        return IEmailRecoveryCommandHandler(commandHandler)
+            .extractRecoveredAccountFromAcceptanceCommand(commandParams, templateIdx);
+    }
+
+    /**
+     * @notice Extracts the account address to be recovered from the command parameters of a
+     * recovery email.
+     * @dev This is retrieved from the associated command handler.
+     * @param commandParams The command parameters of the recovery email.
+     * @param templateIdx The index of the recovery command template.
+     */
+    function extractRecoveredAccountFromRecoveryCommand(
+        bytes[] memory commandParams,
+        uint256 templateIdx
+    )
+        public
+        view
+        override
+        returns (address)
+    {
+        return IEmailRecoveryCommandHandler(commandHandler)
+            .extractRecoveredAccountFromRecoveryCommand(commandParams, templateIdx);
+    }
 
  function handleAcceptanceV2(EmailAuthMsg memory emailAuthMsg, uint templateIdx,  bytes memory signature) external{
  address recoveredAccount = extractRecoveredAccountFromAcceptanceCommand(
@@ -349,12 +491,31 @@ emit RecoveryCompleted(account);
              // An assertion to confirm that the authEmail function is executed successfully
         // and does not return an error.
         guardianEmailAuth.authEmail(emailAuthMsg);
-  }
+  }GuardianStorage memory guardianStorage = getGuardian(recoveredAccount, guardian);
    updateGuardianStatus(recoveredAccount, guardian, GuardianStatus.ACCEPTED);
-        guardianConfigs[recoveredAccount].acceptedWeight += guardiansStorage.weight;
+        guardianConfigs[recoveredAccount].acceptedWeight += guardianStorage.weight;
 
         emit GuardianAccepted(recoveredAccount, guardian);
  }
+  function acceptGuardian(
+        address guardian,
+        uint256 templateIdx,
+        bytes[] memory commandParams,
+        bytes32 /* nullifier */
+    )
+        internal
+        override
+        onlyWhenActive
+    {  address account = IEmailRecoveryCommandHandler(commandHandler).validateAcceptanceCommand(
+            templateIdx, commandParams
+        );
+            GuardianStorage memory guardianStorage = getGuardian(account, guardian);
+   updateGuardianStatus(account, guardian, GuardianStatus.ACCEPTED);
+        guardianConfigs[account].acceptedWeight += guardianStorage.weight;
+
+        emit GuardianAccepted(account, guardian);
+
+    }
  /**
  * @notice Recovers the signer of a message using ECDSA.
  * @param messageHash The hash of the message signed by the EOA guardian.
@@ -362,7 +523,7 @@ emit RecoveryCompleted(account);
  * @return The address of the signer.
  */
 function recoverSigner(bytes32 messageHash, bytes memory  signature) internal pure  returns(address){
-bytes32 ethSignesMessageHash = keccak256(abi.encodedPacked("\x19Ethereum Signed Message:\n32", messageHash));
+bytes32 ethSignesMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
 (bytes32 r, bytes32 s, uint8 v)= splitSignature(signature);
 return ecrecover(ethSignesMessageHash, v, r, s);
 
@@ -385,70 +546,76 @@ function splitSignature(bytes memory sig) internal pure returns (bytes32 r, byte
 
 
 }
-  /// @notice Processes the recovery based on an email from the guardian.
-    /// @dev Verify the provided email auth message for a deployed guardian's EmailAuth contract and a specific command template for recovery.
-    /// Requires that the guardian is already deployed, and the template ID corresponds to the `templateId` in the given email auth message. Once validated.
-    /// @param emailAuthMsg The email auth message for recovery.
-    /// @param templateIdx The index of the command template for recovery, which should match with the command in the given email auth message.
-    function handleRecovery(
-        EmailAuthMsg memory emailAuthMsg,
-        uint templateIdx
-    ) external {
-        address recoveredAccount = extractRecoveredAccountFromRecoveryCommand(
-            emailAuthMsg.commandParams,
-            templateIdx
-        );
-        require(recoveredAccount != address(0), "invalid account in email");
-        address guardian;
-        bool isEOAGuardian    = emailAuthMsg.proof.accountSalt == bytes32(0);
-        if(isEOAGuardian){
-            guardian = verifyEOAGuardian(emailAuthMsg.Proof);
-        }
-        else{
+//   /// @notice Processes the recovery based on an email from the guardian.
+//     /// @dev Verify the provided email auth message for a deployed guardian's EmailAuth contract and a specific command template for recovery.
+//     /// Requires that the guardian is already deployed, and the template ID corresponds to the `templateId` in the given email auth message. Once validated.
+//     /// @param emailAuthMsg The email auth message for recovery.
+//     /// @param templateIdx The index of the command template for recovery, which should match with the command in the given email auth message.
+//     function handleRecovery(
+//         EmailAuthMsg memory emailAuthMsg,
+//         uint templateIdx
+//     ) external override {
+//         address recoveredAccount = extractRecoveredAccountFromRecoveryCommand(
+//             emailAuthMsg.commandParams,
+//             templateIdx
+//         );
+//         require(recoveredAccount != address(0), "invalid account in email");
+//         address guardian;
+//         bool isEOAGuardian    = emailAuthMsg.proof.accountSalt == bytes32(0);
+//         if(isEOAGuardian){
+//             guardian = verifyEOAGuardian(emailAuthMsg.proof);
+//         }
+//         else{
 
-        guardian = computeEmailAuthAddress(
-            recoveredAccount,
-            emailAuthMsg.proof.accountSalt
-        );
+//         guardian = computeEmailAuthAddress(
+//             recoveredAccount,
+//             emailAuthMsg.proof.accountSalt
+//         );
 
-        // Check if the guardian is deployed
-        require(address(guardian).code.length > 0, "guardian is not deployed");
-        }
-        uint templateId = uint256(
-            keccak256(
-                abi.encode(
-                    EMAIL_ACCOUNT_RECOVERY_VERSION_ID,
-                    "RECOVERY",
-                    templateIdx
-                )
-            )
-        );
-        require(templateId == emailAuthMsg.templateId, "invalid template id");
-if(!isEOAGuardian){
-        EmailAuth guardianEmailAuth = EmailAuth(payable(address(guardian)));
+//         // Check if the guardian is deployed
+//         require(address(guardian).code.length > 0, "guardian is not deployed");
+//         }
+//         uint templateId = uint256(
+//             keccak256(
+//                 abi.encode(
+//                     EMAIL_ACCOUNT_RECOVERY_VERSION_ID,
+//                     "RECOVERY",
+//                     templateIdx
+//                 )
+//             )
+//         );
+//         require(templateId == emailAuthMsg.templateId, "invalid template id");
+// if(!isEOAGuardian){
+//         EmailAuth guardianEmailAuth = EmailAuth(payable(address(guardian)));
 
-        // An assertion to confirm that the authEmail function is executed successfully
-        // and does not return an error.
-        guardianEmailAuth.authEmail(emailAuthMsg);
-}
+//         // An assertion to confirm that the authEmail function is executed successfully
+//         // and does not return an error.
+//         guardianEmailAuth.authEmail(emailAuthMsg);
+// }
 
-        processRecovery(
-            guardian,
-            templateIdx,
-            emailAuthMsg.commandParams,
-            emailAuthMsg.proof.emailNullifier
-        );
-    }
+//         processRecovery(
+//             guardian,
+//             templateIdx,
+//             emailAuthMsg.commandParams,
+//             emailAuthMsg.proof.emailNullifier
+//         );
+//     }
 
     function verifyEOAGuardian(EmailProof memory proof)internal view returns (address){
-        bytes32 hash = keccak256(abi.encode(proof.accountSalt, EMAIL_ACCOUNT_RECOVERY_VERSION_ID)
-    ).toEthSignedMessageHash();
+         bytes32 hash = toEthSignedMessageHash(
+        keccak256(abi.encode(proof.accountSalt, EMAIL_ACCOUNT_RECOVERY_VERSION_ID))
+    );
     // Recover signer address
-    address signer = ECDSA.recover(hash, proof.signature);
+    address signer = ECDSA.recover(hash, proof.proof);
 
     // Ensure the signer is an EOA
     require(signer.code.length == 0, "guardian must be an EOA");
 
     return signer;
     }
+
+    function toEthSignedMessageHash(bytes32 hash) internal pure returns (bytes32) {
+    return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+}
+
 }

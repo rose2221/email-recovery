@@ -50,7 +50,7 @@ event GuardianVoted(address indexed account, address indexed guardian);
 event RecoveryRequestComplete(address indexed account, address indexed guardian, uint256 executeAfter, uint256 executeBefore, bytes32 recoveryDataHash);
 event RecoveryCompleted(address indexed account);
 event RecoveryCancelled(address indexed account);
-
+event RecoveryDeInitialized(address indexed account);
 event RecoveryExecuted(address indexed account, address indexed validator);
    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           ERRORS                           */
@@ -78,6 +78,8 @@ error RecoveryRequestExpired();
 error InvalidSelector();
 error AccountNotConfigured();
  error DelayNotPassed(uint256 blockTimestamp, uint256 executeAfter);
+   error RecoveryHasNotExpired(address account, uint256 blockTimestamp, uint256 executeBefore);
+ 
   
 
    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

@@ -19,7 +19,8 @@ interface ISimpleGuardianManager {
             // started without being broken
         uint256 threshold; // the threshold required to successfully process a recovery attempt
     }
-        enum GuardianType {
+   
+    enum GuardianType {
         EOA,
         EmailVerified
     }
@@ -41,7 +42,7 @@ interface ISimpleGuardianManager {
     error StatusCannotBeTheSame(GuardianStatus newStatus);
     error SetupNotCalled();
     error AddressNotGuardianForAccount();
-      error InvalidTemplateIndex(uint256 templateIdx, uint256 expectedTemplateIdx);
+    //   error InvalidTemplateIndex(uint256 templateIdx, uint256 expectedTemplateIdx);
     error InvalidCommandParams(uint256 paramsLength, uint256 expectedParamsLength);
    error ThresholdExceedsAcceptedWeight(uint256 threshold, uint256 acceptedWeight);
    
